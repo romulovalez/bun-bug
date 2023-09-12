@@ -1,0 +1,46 @@
+
+import express from 'express'
+import compression from 'compression'
+import * as Sentry from '@sentry/node'
+import * as Tracing from '@sentry/tracing'
+
+const app = express()
+
+Sentry.init({
+  dsn: '',
+  enabled: true,
+  environment: 'local',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+    // enable Express.js middleware tracing
+    new Tracing.Integrations.Express({ app }),
+    new Tracing.Integrations.Postgres(),
+  ],
+  release: 'local',
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 0.2,
+})
+
+// RequestHandler creates a separate execution context using domains, so that every
+// transaction/span/breadcrumb is attached to its own Hub instance
+app.use(Sentry.Handlers.requestHandler())
+// TracingHandler creates a trace for every incoming request
+app.use(Sentry.Handlers.tracingHandler())
+
+// Compress all responses
+app.use(compression())
+
+app.get('/', (_req, res) => {
+  // string with 1024 chars - this will segment fault only on bun
+  // remove on char and it will work
+  res.send('110294529296358921771893845372526294868535505602479076137811845629093606755361678087138365913759488661291008173138552265543031490740435411373755683102542172547750565377557702396073382194712398421163363416700801861176612077680530192321592712374719121367029151826030179274448086713646161394184582924483652868812873474219772948292537404000870813931144228963162133527671185103600909893763956673240004122101797580205352261564812314289856981121782407670144612884295790683257786371176739761520782200605305320329014793304261285554124315291791290239243134377312027414823127957061710457177584967848916014466931421743335527275230769264548137878008604417456967730131179051729065535207890455634134826821540400377932115816233188768933312239046964294005470477753932446753708413493788953234612947813581786447043664198560712957124427342446539239828766212813587024041472688197045781098125303962299326238653894223687712536239704066187757218405564658844174786174665852917948343067606940161993719927694787606032560999645758645629804694970259108'
+  )
+})
+
+const port = 3002
+app.listen(port, () => {
+  console.log(`Hello via Bun port ${port}!`);
+})
